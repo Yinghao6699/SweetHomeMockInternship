@@ -37,11 +37,7 @@ import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.security.AccessControlException;
 import java.text.MessageFormat;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
-import java.util.Set;
+import java.util.*;
 
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -347,18 +343,36 @@ public class HomePrintableComponent extends JComponent implements Printable {
         && (homePrint == null || homePrint.isFurniturePrinted())) {
       FurnitureTable furnitureTable = null;
       final FurnitureTable.FurnitureFilter furnitureFilter;
+      List<HomePieceOfFurniture.SortableProperty> oldVisibleProperties = null;
       if (furnitureView instanceof FurnitureTable
           && (homePrint == null
               || homePrint.isPlanPrinted()
               || homePrint.isView3DPrinted())) {
         final Level selectedLevel = home.getSelectedLevel();
         furnitureTable = (FurnitureTable)furnitureView;
+
+        oldVisibleProperties =
+                new ArrayList<HomePieceOfFurniture.SortableProperty>(
+                        this.home.getFurnitureVisibleProperties());
+
+        if (!oldVisibleProperties.contains(
+                HomePieceOfFurniture.SortableProperty.LEVEL)) {
+
+          List<HomePieceOfFurniture.SortableProperty> newProperties =
+                  new ArrayList<HomePieceOfFurniture.SortableProperty>(
+                          oldVisibleProperties);
+
+          newProperties.add(
+                  HomePieceOfFurniture.SortableProperty.LEVEL);
+
+          this.home.setFurnitureVisibleProperties(newProperties);
+        }
+
         furnitureFilter = furnitureTable.getFurnitureFilter();
         furnitureTable.setFurnitureFilter(new FurnitureTable.FurnitureFilter() {
             public boolean include(Home home, HomePieceOfFurniture piece) {
               // Print only furniture at selected level when the plan or the 3D view is printed
               return (furnitureFilter == null || furnitureFilter.include(home, piece))
-                  && piece.isAtLevel(selectedLevel)
                   && (piece.getLevel() == null || piece.getLevel().isViewable());
             }
           });
@@ -369,7 +383,12 @@ public class HomePrintableComponent extends JComponent implements Printable {
       pageExists = ((Printable)furnitureView).print(g2D, pageFormat, page);
       if (furnitureTable != null) {
         // Restore previous filter
-        ((FurnitureTable)furnitureView).setFurnitureFilter(furnitureFilter);
+        furnitureTable.setFurnitureFilter(furnitureFilter);
+
+        if (oldVisibleProperties != null) {
+          this.home.setFurnitureVisibleProperties(
+                  oldVisibleProperties);
+        }
       }
       if (pageExists == PAGE_EXISTS
           && !this.printablePages.contains(page)) {
